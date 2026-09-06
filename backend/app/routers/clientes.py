@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from sqlmodel import Session, select, col, func
 
 from app.database import get_db
@@ -10,6 +10,32 @@ from app.models.cliente import Cliente
 from app.schemas.cliente import ClienteCreate, ClienteUpdate, ClienteRead, ClienteList
 
 router = APIRouter(prefix="/clientes", tags=["Clientes"])
+
+
+@router.post("/importar-excel", tags=["Importação"])
+def importar_excel(
+    file: UploadFile = File(...),
+    session: Session = Depends(get_db),
+    _user: str = Depends(get_current_user),
+):
+    """
+    Importa clientes e atendimentos de uma planilha Excel (.xlsx).
+    Deduplica pelo telefone — clientes já existentes no banco são pulados.
+    """
+    if not file.filename or not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(
+            status_code=400,
+            detail="Arquivo inválido. Envie um arquivo .xlsx",
+        )
+
+    from app.services.importacao import importar_excel as do_import
+
+    try:
+        file_bytes = file.file.read()
+        result = do_import(session, file_bytes)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao processar planilha: {str(e)}")
 
 
 @router.get("", response_model=ClienteList)

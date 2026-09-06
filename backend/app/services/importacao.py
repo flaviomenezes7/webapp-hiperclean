@@ -153,14 +153,14 @@ def parse_date(raw) -> date | None:
     return None
 
 
-def importar_excel(session: Session, file_bytes: bytes, limpar_dados: bool = True) -> dict:
+def importar_excel(session: Session, file_bytes: bytes) -> dict:
     """
     Importa dados de uma planilha Excel para o banco.
+    Deduplica pelo telefone: se o cliente já existe no banco, pula.
     
     Args:
         session: Database session
         file_bytes: Conteudo do arquivo Excel em bytes
-        limpar_dados: Se True, remove todos os dados existentes antes de importar
     
     Returns:
         Dict com estatisticas da importacao
@@ -238,27 +238,25 @@ def importar_excel(session: Session, file_bytes: bytes, limpar_dados: bool = Tru
     # Remove entries without phone
     clientes_map = {k: v for k, v in clientes_map.items() if v['telefone']}
 
-    # Clear existing data if requested
-    if limpar_dados:
-        envios = session.exec(select(Envio)).all()
-        for e in envios:
-            session.delete(e)
+    # Load existing phones from DB to deduplicate
+    existing_clientes = session.exec(select(Cliente).where(Cliente.deleted_at.is_(None))).all()
+    existing_phones = set()
+    for c in existing_clientes:
+        if c.telefone and len(c.telefone) >= 8:
+            existing_phones.add(c.telefone[-8:])
 
-        atends_existing = session.exec(select(Atendimento)).all()
-        for a in atends_existing:
-            session.delete(a)
-
-        existing_clients = session.exec(select(Cliente)).all()
-        for c in existing_clients:
-            session.delete(c)
-
-        session.commit()
-
-    # Insert new data
+    # Insert only new clients
     clientes_inseridos = 0
+    clientes_duplicados = 0
     atendimentos_inseridos = 0
 
     for key, data in clientes_map.items():
+        phone_key = data['telefone'][-8:] if data['telefone'] and len(data['telefone']) >= 8 else None
+
+        if phone_key and phone_key in existing_phones:
+            clientes_duplicados += 1
+            continue
+
         cliente = Cliente(
             nome=data['nome'],
             telefone=data['telefone'] or "",
@@ -268,6 +266,9 @@ def importar_excel(session: Session, file_bytes: bytes, limpar_dados: bool = Tru
         session.add(cliente)
         session.flush()
         clientes_inseridos += 1
+
+        if phone_key:
+            existing_phones.add(phone_key)
 
         for atend in data['atendimentos']:
             atendimento = Atendimento(
@@ -284,6 +285,8 @@ def importar_excel(session: Session, file_bytes: bytes, limpar_dados: bool = Tru
     return {
         "registros_brutos": len(records),
         "clientes_inseridos": clientes_inseridos,
+        "clientes_duplicados": clientes_duplicados,
         "atendimentos_inseridos": atendimentos_inseridos,
         "abas_processadas": wb.sheetnames,
     }
+

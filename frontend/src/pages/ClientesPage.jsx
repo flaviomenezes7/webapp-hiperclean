@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/client';
 import Modal from '../components/Modal';
 import { formatTelefone } from '../utils/helpers';
@@ -11,6 +11,7 @@ export default function ClientesPage({ showToast }) {
   const [busca, setBusca] = useState('');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState(null);
   const [form, setForm] = useState({
@@ -20,6 +21,7 @@ export default function ClientesPage({ showToast }) {
     endereco: '',
     observacoes: '',
   });
+  const fileInputRef = useRef(null);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -67,6 +69,26 @@ export default function ClientesPage({ showToast }) {
       observacoes: cliente.observacoes || '',
     });
     setModalOpen(true);
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const result = await api.importExcel(file);
+      const msg = `Importação concluída! ${result.clientes_inseridos} clientes e ${result.atendimentos_inseridos} atendimentos importados.`
+        + (result.clientes_duplicados > 0 ? ` ${result.clientes_duplicados} duplicados pulados.` : '');
+      showToast(msg, 'success');
+      fetchClientes();
+    } catch (err) {
+      showToast('Erro na importação: ' + err.message, 'error');
+    } finally {
+      setImporting(false);
+      // Reset file input so same file can be selected again
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -118,6 +140,21 @@ export default function ClientesPage({ showToast }) {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
             />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleImport}
+              style={{ display: 'none' }}
+              id="excel-import-input"
+            />
+            <button
+              className="btn btn-secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+            >
+              {importing ? '⏳ Importando...' : '📥 Importar Excel'}
+            </button>
             <button className="btn btn-primary" onClick={openCreate}>
               + Novo Cliente
             </button>

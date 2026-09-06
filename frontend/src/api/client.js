@@ -76,6 +76,22 @@ const api = {
     const qs = searchParams.toString();
     return request(`/clientes${qs ? '?' + qs : ''}`);
   },
+  importExcel: (file) => {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetch(`${API_BASE}/clientes/importar-excel`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Erro na importação');
+      return data;
+    });
+  },
   createCliente: (data) =>
     request('/clientes', { method: 'POST', body: JSON.stringify(data) }),
   updateCliente: (id, data) =>
