@@ -1278,6 +1278,9 @@ a {
 }
 
 .client-card-send-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   background: var(--accent);
   color: white;
   border: none;
@@ -1289,6 +1292,12 @@ a {
   transition: all var(--transition-fast);
   white-space: nowrap;
   flex-shrink: 0;
+  font-family: var(--font-family);
+}
+
+.client-card-send-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .client-card-send-btn:hover:not(:disabled) {
