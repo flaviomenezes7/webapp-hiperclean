@@ -16,7 +16,7 @@ export default function ClientesPage({ showToast }) {
   const [editingCliente, setEditingCliente] = useState(null);
   const [form, setForm] = useState({
     nome: '',
-    telefone: '',
+    telefone: '55',
     data_nasc: '',
     endereco: '',
     observacoes: '',
@@ -50,7 +50,7 @@ export default function ClientesPage({ showToast }) {
   }, [busca]);
 
   const resetForm = () => {
-    setForm({ nome: '', telefone: '', data_nasc: '', endereco: '', observacoes: '' });
+    setForm({ nome: '', telefone: '55', data_nasc: '', endereco: '', observacoes: '' });
     setEditingCliente(null);
   };
 

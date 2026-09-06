@@ -31,7 +31,17 @@ async function request(path, options = {}) {
   const data = await res.json();
 
   if (!res.ok) {
-    throw new Error(data.detail || `Erro ${res.status}`);
+    // Pydantic validation errors come as [{msg: "...", loc: [...]}]
+    let errorMsg = `Erro ${res.status}`;
+    if (typeof data.detail === 'string') {
+      errorMsg = data.detail;
+    } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+      errorMsg = data.detail.map(e => {
+        const msg = (e.msg || '').replace(/^Value error, /i, '');
+        return msg;
+      }).join('; ');
+    }
+    throw new Error(errorMsg);
   }
 
   return data;
