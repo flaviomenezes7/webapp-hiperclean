@@ -165,13 +165,11 @@ def _get_pendentes_dias_apos_atendimento(
 
     results = session.exec(stmt).all()
     items = []
-    seen = set()  # Evitar duplicatas (mesmo cliente, múltiplos atendimentos)
+    seen_clients = set()  # Dedup by client — show only the most recent atendimento
     for atend, cliente in results:
-        # Usar (cliente_id, data_atend) como chave única
-        key = (str(cliente.id), str(atend.data_atend))
-        if key in seen:
+        if str(cliente.id) in seen_clients:
             continue
-        seen.add(key)
+        seen_clients.add(str(cliente.id))
 
         dias_passados = (hoje - atend.data_atend).days
         servico_label = SERVICO_LABELS.get(atend.tipo_servico, "estofado")

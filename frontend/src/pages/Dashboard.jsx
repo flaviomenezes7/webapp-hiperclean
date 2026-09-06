@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../api/client';
 import Header from '../components/Header';
 import ProgressBar from '../components/ProgressBar';
@@ -9,6 +9,7 @@ export default function Dashboard({ showToast }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sentIds, setSentIds] = useState(new Set());
+  const [busca, setBusca] = useState('');
 
   const fetchPendentes = useCallback(async () => {
     try {
@@ -44,6 +45,25 @@ export default function Dashboard({ showToast }) {
     }
   };
 
+  // Filter groups by search term
+  const filteredGrupos = useMemo(() => {
+    if (!data || !data.grupos) return [];
+    if (!busca.trim()) return data.grupos;
+
+    const term = busca.toLowerCase();
+    return data.grupos
+      .map((grupo) => ({
+        ...grupo,
+        pendentes: grupo.pendentes.filter((p) =>
+          p.cliente_nome.toLowerCase().includes(term)
+        ),
+        total: grupo.pendentes.filter((p) =>
+          p.cliente_nome.toLowerCase().includes(term)
+        ).length,
+      }))
+      .filter((grupo) => grupo.total > 0);
+  }, [data, busca]);
+
   // Calculate totals
   const totalPendentes = data
     ? data.total_pendentes + data.total_enviados_hoje
@@ -60,14 +80,27 @@ export default function Dashboard({ showToast }) {
 
   return (
     <>
-      <Header title="Mensagens de hoje" />
+      <div className="page-header">
+        <div className="page-header-row">
+          <h1 className="page-header-title">Mensagens de hoje</h1>
+          <div className="page-actions">
+            <input
+              className="search-input"
+              type="text"
+              placeholder="Buscar por nome..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
 
       {totalPendentes > 0 && (
         <ProgressBar enviados={totalEnviados} total={totalPendentes} />
       )}
 
-      {data && data.grupos.length > 0 ? (
-        data.grupos.map((grupo) => (
+      {filteredGrupos.length > 0 ? (
+        filteredGrupos.map((grupo) => (
           <CampaignGroup
             key={grupo.campanha_id}
             grupo={grupo}
